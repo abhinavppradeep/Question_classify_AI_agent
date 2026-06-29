@@ -24,6 +24,7 @@ def main():
         parser.add_argument("--classification-model", default="gemini-3.1-flash-lite", help="Gemini model for question classification.")
         parser.add_argument("--chunk-size", type=int, default=5, help="Number of pages per extraction chunk.")
         parser.add_argument("--batch-size", type=int, default=25, help="Number of questions per classification batch.")
+        parser.add_argument("--max-questions", type=int, default=150, help="Expected number of questions in the paper.")
         
         args = parser.parse_args()
         
@@ -41,7 +42,7 @@ def main():
         
         # 2. Parsing
         print("\n--- STEP 2: PARSING ---")
-        questions = extract_questions_via_llm(raw_text, model_name=args.extraction_model, chunk_size=args.chunk_size)
+        questions = extract_questions_via_llm(raw_text, max_q=args.max_questions, model_name=args.extraction_model, chunk_size=args.chunk_size)
         print(f"[+] Parsed {len(questions)} potential questions.")
         
         if not questions:

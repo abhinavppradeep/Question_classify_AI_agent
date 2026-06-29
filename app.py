@@ -128,6 +128,15 @@ batch_size = st.sidebar.slider(
     help="Consolidate more questions into a single call. Setting this to 150 will classify the entire paper in a single request!"
 )
 
+max_questions = st.sidebar.number_input(
+    "Expected Questions Count",
+    min_value=10,
+    max_value=300,
+    value=150,
+    step=5,
+    help="Define the exact number of questions in this paper (e.g. 150 for core subject, 100 for General Studies)."
+)
+
 # Category Configuration
 st.sidebar.subheader("📋 Classification Categories")
 categories_input = st.sidebar.text_area(
@@ -190,6 +199,7 @@ if uploaded_file is not None:
                     
                 st.session_state.questions = extract_questions_via_llm(
                     raw_text, 
+                    max_q=max_questions,
                     model_name=extraction_model, 
                     chunk_size=chunk_size,
                     progress_callback=parse_callback
