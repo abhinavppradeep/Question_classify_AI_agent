@@ -91,7 +91,36 @@ def classify_all(questions, categories_file, model_name="gemini-3.1-flash-lite",
         if result and 'classifications' in result:
             all_classifications.extend(result['classifications'])
         else:
-            print(f"[-] Failed to classify batch {i+1}")
+            warn_msg = f"[-] Failed to classify batch {i+1}. Attempting sub-batch fallback..."
+            if progress_callback:
+                progress_callback(warn_msg)
+            print(f"    {warn_msg}")
+            
+            # Fallback Level 1: Sub-batches of 5 questions
+            sub_batches = list(get_batches(batch, 5))
+            for sj, sub_batch in enumerate(sub_batches):
+                sub_msg = f"[Fallback] Classifying sub-batch {sj+1}/{len(sub_batches)} (size: {len(sub_batch)})..."
+                if progress_callback:
+                    progress_callback(sub_msg)
+                print(f"        {sub_msg}")
+                sub_result = classify_questions_batch(sub_batch, categories, model_name=model_name)
+                
+                if sub_result and 'classifications' in sub_result:
+                    all_classifications.extend(sub_result['classifications'])
+                else:
+                    # Fallback Level 2: Individual question classification
+                    for q in sub_batch:
+                        ind_msg = f"[Individual Fallback] Classifying question {q['id']}..."
+                        if progress_callback:
+                            progress_callback(ind_msg)
+                        print(f"            {ind_msg}")
+                        single_result = classify_questions_batch([q], categories, model_name=model_name)
+                        if single_result and 'classifications' in single_result and len(single_result['classifications']) > 0:
+                            all_classifications.extend(single_result['classifications'])
+                        else:
+                            print(f"            [-] Failed to classify question {q['id']} individually.")
+                # Small sleep to respect rate limit during sub-batching
+                time.sleep(2)
             
         # Rate limit protection for free tier (5 RPM limit)
         # Sleeping for 15 seconds guarantees we stay well under the limit
