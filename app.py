@@ -1,4 +1,8 @@
 import os
+import sys
+# Force absolute path resolution of project root for cloud deployments
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import time
 import pandas as pd
 import streamlit as st
