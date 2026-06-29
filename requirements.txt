@@ -4,3 +4,5 @@ pydantic
 pdf2image
 pytesseract
 streamlit
+pandas
+pillow
