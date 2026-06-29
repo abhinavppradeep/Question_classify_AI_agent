@@ -1,6 +1,4 @@
-# 🔮 Gemini Question Classifier Suite
-
-A production-grade, fully-featured AI workspace that extracts exam questions from noisy PDFs/scans using OCR, parses clean question blocks, and classifies them into structured academic subjects using Google Gemini's context window.
+# ⚡ Qunify AI: Automated Exam Parser & Classifier
 
 ---
 

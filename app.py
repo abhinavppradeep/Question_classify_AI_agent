@@ -13,58 +13,128 @@ from src.reporter import generate_reports
 load_dotenv()
 
 st.set_page_config(
-    page_title="Gemini Question Classifier Suite",
-    page_icon="🔮",
+    page_title="Qunify AI - Automated Exam Parser & Classifier",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for Premium Dark/Glassmorphism theme
+# Custom Styling for Premium Modern Glassmorphism Theme (AuraQ / Qunify)
 st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
-    .reportview-container {
-        background: #0f1116;
+    /* Main Layout */
+    .stApp {
+        background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f0f16 70%, #08070b 100%) !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        color: #f1f5f9 !important;
     }
-    .main .block-container {
-        padding-top: 2rem;
-    }
+    
+    /* Headers & Titles */
     h1, h2, h3 {
-        color: #e2e8f0 !important;
-        font-family: 'Outfit', sans-serif;
+        font-family: 'Space Grotesk', sans-serif !important;
+        background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 50%, #4f46e5 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em;
     }
+    
+    /* Glassmorphism Cards */
+    div[data-testid="stVerticalBlock"] > div:has(div.stMarkdown) {
+        background: rgba(30, 41, 59, 0.25);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        margin-bottom: 1rem;
+    }
+    
+    /* Interactive Buttons */
     .stButton>button {
-        background-color: #4f46e5;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        padding: 0.5rem 1rem;
-        transition: background-color 0.3s;
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 0.6rem 1.8rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.02em !important;
+        box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.3) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     .stButton>button:hover {
-        background-color: #4338ca;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.45) !important;
+        background: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%) !important;
     }
+    
+    /* Form inputs and text fields */
+    .stTextInput>div>div>input, .stTextArea>div>textarea, .stSelectbox>div>div {
+        background-color: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 10px !important;
+        color: #f1f5f9 !important;
+    }
+    
+    /* Upload Box custom layout */
+    div[data-testid="stFileUploaderDropzone"] {
+        background: rgba(30, 41, 59, 0.15) !important;
+        border: 2px dashed rgba(99, 102, 241, 0.3) !important;
+        border-radius: 16px !important;
+        padding: 2rem !important;
+        transition: border 0.3s ease;
+    }
+    div[data-testid="stFileUploaderDropzone"]:hover {
+        border-color: #6366f1 !important;
+    }
+    
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #0c0a0f !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+    
+    /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 24px;
+        gap: 20px;
+        background-color: rgba(15, 23, 42, 0.3);
+        padding: 6px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
+        height: 44px;
         background-color: transparent;
-        border-radius: 4px;
         color: #94a3b8;
-        font-size: 16px;
-        font-weight: 600;
+        font-size: 15px;
+        font-weight: 500;
+        transition: all 0.2s ease;
     }
     .stTabs [aria-selected="true"] {
-        color: #e2e8f0 !important;
-        border-bottom: 2px solid #4f46e5 !important;
+        color: #c7d2fe !important;
+        font-weight: 600 !important;
+        border-bottom: 2px solid #6366f1 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# App Title
-st.title("🔮 Gemini Question Classifier Suite")
-st.caption("A fully-fledged extraction and classification workspace leveraging multi-model fallbacks and live output verification.")
+# Custom Banner Component
+st.markdown("""
+<div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.03) 100%); padding: 2rem; border-radius: 16px; border: 1px solid rgba(99, 102, 241, 0.15); margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+    <div>
+        <h1 style="margin: 0; font-size: 2.8rem; font-weight: 800;">⚡ Qunify AI</h1>
+        <p style="margin: 0.5rem 0 0 0; color: #94a3b8; font-size: 1.1rem; font-weight: 400; letter-spacing: 0.01em;">
+            Automated Exam Parser & Intelligent Question Classification Agent
+        </p>
+    </div>
+    <div style="font-size: 3.5rem; filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.4));">🚀</div>
+</div>
+""", unsafe_allow_html=True)
 
 # Initialize Session State
 if "questions" not in st.session_state:
@@ -75,18 +145,21 @@ if "categories" not in st.session_state:
     st.session_state.categories = []
 
 # Sidebar Config
-st.sidebar.header("⚙️ Configuration")
+st.sidebar.markdown("""
+<div style="padding-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 1.5rem;">
+    <h3 style="margin: 0; font-size: 1.3rem;">⚙️ Settings Panel</h3>
+</div>
+""", unsafe_allow_html=True)
 
 # API Key Config
 default_api_key = os.environ.get("GEMINI_API_KEY", "")
 api_key = st.sidebar.text_input("Gemini API Key", value=default_api_key, type="password")
 if api_key != default_api_key:
     os.environ["GEMINI_API_KEY"] = api_key
-    # Persist in .env
     set_key(".env", "GEMINI_API_KEY", api_key)
 
 # Model Selection Dropdowns
-st.sidebar.subheader("🤖 LLM Model Selection")
+st.sidebar.subheader("🤖 Agent Models")
 available_models = [
     "gemini-3.1-flash-lite",
     "gemini-2.5-flash-lite",
@@ -110,6 +183,7 @@ classification_model = st.sidebar.selectbox(
     help="Select which Gemini model to use for categorising your extracted questions."
 )
 
+st.sidebar.subheader("🎛️ Optimization Tuning")
 chunk_size = st.sidebar.slider(
     "Pages per Extraction Chunk",
     min_value=3,
@@ -146,8 +220,9 @@ categories_input = st.sidebar.text_area(
 
 st.session_state.categories = [c.strip() for c in categories_input.split("\n") if c.strip()]
 
-# File Uploader
-uploaded_file = st.file_uploader("Upload PDF Exam Paper (or cached OCR text file)", type=["pdf", "txt"])
+# File Uploader Container
+st.markdown("### 📥 Step 1: Upload Exam Paper")
+uploaded_file = st.file_uploader("", type=["pdf", "txt"])
 
 if uploaded_file is not None:
     temp_dir = "temp_uploads"
@@ -157,10 +232,10 @@ if uploaded_file is not None:
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
         
-    st.success(f"Uploaded: {uploaded_file.name}")
+    st.success(f"Successfully loaded: {uploaded_file.name}")
     
     # Process Button
-    if st.button("🚀 Start Extraction & Classification"):
+    if st.button("⚡ Run Extraction & Classification Agent"):
         # Clear previous state to prevent stale data display during execution
         st.session_state.questions = []
         st.session_state.classifications = []
@@ -169,7 +244,7 @@ if uploaded_file is not None:
         run_logger = setup_logger("run.log")
         
         try:
-            with st.status("Processing PDF...", expanded=True) as status:
+            with st.status("Analyzing Exam PDF...", expanded=True) as status:
                 # 1. Extraction / Cache Check
                 status.update(label="Extracting text from PDF...")
                 
@@ -236,7 +311,8 @@ if uploaded_file is not None:
 
 # Display Results & Verification Grid
 if st.session_state.questions and st.session_state.classifications:
-    st.header("🔍 Workspace Verification & Outputs")
+    st.markdown("---")
+    st.subheader("🔍 Step 2: Interactive Verification & Exports Workspace")
     st.info("Verify classifications, manually adjust categories, and preview files directly in the tabs below.")
     
     # Map classifications into a DataFrame structure
