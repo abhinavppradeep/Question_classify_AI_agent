@@ -222,7 +222,7 @@ st.session_state.categories = [c.strip() for c in categories_input.split("\n") i
 
 # File Uploader Container
 st.markdown("### 📥 Step 1: Upload Exam Paper")
-uploaded_file = st.file_uploader("", type=["pdf", "txt"])
+uploaded_file = st.file_uploader("Upload PDF Exam Paper (or cached OCR text file)", type=["pdf", "txt"], label_visibility="collapsed")
 
 if uploaded_file is not None:
     temp_dir = "temp_uploads"
