@@ -25,27 +25,48 @@ def extract_text_from_pdf(pdf_path, cache_dir="cache", progress_callback=None):
             return f.read()
 
     if progress_callback:
-        progress_callback("Converting PDF pages to images (this can take a moment)...")
-    print(f"[+] Converting {pdf_path} pages to images (this might take a while)...")
+        progress_callback("Reading PDF page count...")
+    
+    # Set poppler path for Apple Silicon Macs
+    poppler_path = "/opt/homebrew/bin" if os.path.exists("/opt/homebrew/bin/pdftoppm") else None
+    
     try:
-        # Set poppler path for Apple Silicon Macs
-        poppler_path = "/opt/homebrew/bin" if os.path.exists("/opt/homebrew/bin/pdftoppm") else None
-        pages = convert_from_path(pdf_path, dpi=300, poppler_path=poppler_path)
+        from pdf2image import pdfinfo_from_path
+        info = pdfinfo_from_path(pdf_path, poppler_path=poppler_path)
+        total_pages = info.get("Pages", 0)
     except Exception as e:
-        print(f"[-] Error reading PDF file. Ensure 'poppler' is installed. Details: {e}")
+        print(f"[-] Error reading PDF details: {e}")
         raise
 
-    full_text = []
-    total_pages = len(pages)
+    print(f"[+] Found {total_pages} pages. Converting and running OCR page-by-page...")
     
-    print(f"[+] Running OCR on {total_pages} page(s)...")
-    for i, page in enumerate(pages):
-        msg = f"Running OCR: processing page {i + 1}/{total_pages}..."
+    full_text = []
+    for i in range(1, total_pages + 1):
+        msg = f"Converting and running OCR: page {i}/{total_pages}..."
         if progress_callback:
             progress_callback(msg)
         print(f"    {msg}")
-        page_text = pytesseract.image_to_string(page, config='--psm 3')
-        full_text.append(f"--- PAGE {i + 1} ---\n{page_text}")
+        
+        try:
+            # Convert ONLY one page at a time to prevent RAM spikes (OOM crashes) on cloud servers
+            page_images = convert_from_path(
+                pdf_path, 
+                dpi=150, 
+                first_page=i, 
+                last_page=i, 
+                poppler_path=poppler_path
+            )
+            if page_images:
+                page_image = page_images[0]
+                page_text = pytesseract.image_to_string(page_image, config='--psm 3')
+                full_text.append(f"--- PAGE {i} ---\n{page_text}")
+                # Free memory immediately
+                page_image.close()
+                del page_image
+                del page_images
+        except Exception as page_err:
+            print(f"[-] Error processing page {i}: {page_err}")
+            full_text.append(f"--- PAGE {i} ---\n[OCR Error: Could not read page {i}]")
     
     combined_text = "\n\n".join(full_text)
     
