@@ -363,12 +363,13 @@ if st.session_state.questions and st.session_state.classifications:
                 )
             },
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
         
     # Generate content for preview tabs
     final_classifications = []
-    for index, row in edited_df.iterrows():
+    df_to_iterate = edited_df if edited_df is not None else df
+    for index, row in df_to_iterate.iterrows():
         final_classifications.append({
             'id': int(row["Question Number"]),
             'category': row["Assigned Category"]
