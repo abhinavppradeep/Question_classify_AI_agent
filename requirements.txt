@@ -1,0 +1,6 @@
+google-generativeai
+python-dotenv
+pydantic
+pdf2image
+pytesseract
+streamlit

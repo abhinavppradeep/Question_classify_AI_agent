@@ -1,0 +1,14 @@
+.env
+venv/
+__pycache__/
+cache/
+temp_uploads/
+run.log
+*.pyc
+.DS_Store
+*.csv
+*.md
+*.txt
+!requirements.txt
+!packages.txt
+!category.csv
