@@ -1,5 +1,9 @@
 import os
 import sys
+# Disable integer string conversion limit entirely to prevent ValueError on large digit payloads
+if hasattr(sys, 'set_int_max_str_digits'):
+    sys.set_int_max_str_digits(0)
+
 # Force absolute path resolution of project root for cloud deployments
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

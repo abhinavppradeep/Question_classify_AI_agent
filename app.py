@@ -9,9 +9,9 @@ if sys.stdout != sys.__stdout__ and (hasattr(sys.stdout, 'file') or 'Tee' in sys
 if sys.stderr != sys.__stderr__ and (hasattr(sys.stderr, 'file') or 'Tee' in sys.stderr.__class__.__name__):
     sys.stderr = sys.__stderr__
 
-# Increase integer string conversion limit to prevent ValueError on large digits
+# Disable integer string conversion limit entirely to prevent ValueError on large digit payloads
 if hasattr(sys, 'set_int_max_str_digits'):
-    sys.set_int_max_str_digits(50000)
+    sys.set_int_max_str_digits(0)
 
 import time
 import pandas as pd
@@ -412,9 +412,14 @@ if st.session_state.questions and st.session_state.classifications:
     final_classifications = []
     df_to_iterate = edited_df if edited_df is not None else df
     for index, row in df_to_iterate.iterrows():
+        raw_cat = row["Assigned Category"]
+        if pd.isna(raw_cat) or raw_cat is None:
+            cat = "Unclassified"
+        else:
+            cat = str(raw_cat).strip()
         final_classifications.append({
             'id': int(row["Question Number"]),
-            'category': row["Assigned Category"]
+            'category': cat
         })
         
     # Generate temporary reports to load content
