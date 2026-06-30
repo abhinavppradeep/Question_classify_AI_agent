@@ -11,7 +11,12 @@ class TeeLogger:
         sys.stderr = self
 
     def write(self, data):
-        if not self.file.closed:
+        try:
+            is_closed = self.file.closed
+        except (ValueError, AttributeError):
+            is_closed = True
+            
+        if not is_closed:
             try:
                 self.file.write(data)
                 self.file.flush()
@@ -21,7 +26,12 @@ class TeeLogger:
         self.stdout.flush()
 
     def flush(self):
-        if not self.file.closed:
+        try:
+            is_closed = self.file.closed
+        except (ValueError, AttributeError):
+            is_closed = True
+            
+        if not is_closed:
             try:
                 self.file.flush()
             except (ValueError, OSError):

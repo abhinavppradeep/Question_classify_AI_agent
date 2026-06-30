@@ -3,6 +3,12 @@ import sys
 # Force absolute path resolution of project root for cloud deployments
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Recover from any previous runs that might have hijacked sys.stdout or sys.stderr
+if sys.stdout != sys.__stdout__ and (hasattr(sys.stdout, 'file') or 'Tee' in sys.stdout.__class__.__name__):
+    sys.stdout = sys.__stdout__
+if sys.stderr != sys.__stderr__ and (hasattr(sys.stderr, 'file') or 'Tee' in sys.stderr.__class__.__name__):
+    sys.stderr = sys.__stderr__
+
 import time
 import pandas as pd
 import streamlit as st
