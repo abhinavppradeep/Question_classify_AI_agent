@@ -2,11 +2,11 @@ import os
 import json
 import time
 import google.generativeai as genai
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
 
 class Classification(BaseModel):
-    id: int
+    id: int = Field(..., ge=1, le=300)
     category: str
 
 class BatchClassificationResult(BaseModel):
