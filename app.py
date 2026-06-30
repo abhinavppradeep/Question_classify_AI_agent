@@ -9,6 +9,10 @@ if sys.stdout != sys.__stdout__ and (hasattr(sys.stdout, 'file') or 'Tee' in sys
 if sys.stderr != sys.__stderr__ and (hasattr(sys.stderr, 'file') or 'Tee' in sys.stderr.__class__.__name__):
     sys.stderr = sys.__stderr__
 
+# Increase integer string conversion limit to prevent ValueError on large digits
+if hasattr(sys, 'set_int_max_str_digits'):
+    sys.set_int_max_str_digits(50000)
+
 import time
 import pandas as pd
 import streamlit as st

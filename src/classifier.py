@@ -46,24 +46,35 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
     {json.dumps([{"id": q["id"], "text": q["text"]} for q in questions], indent=2)}
     """
     
-    try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=BatchClassificationResult,
-            ),
-        )
+    retries = 3
+    delay = 10
+    for attempt in range(retries):
         try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                    response_schema=BatchClassificationResult,
+                ),
+            )
+            # Try parsing the JSON response
             return json.loads(response.text)
         except json.JSONDecodeError as je:
-            print(f"[-] JSON Decode Error: {je}")
-            print(f"[-] Response length: {len(response.text)}")
-            print(f"[-] Response snippet: {response.text[:1000]} ... [TRUNCATED] ... {response.text[-1000:]}")
-            return None
-    except Exception as e:
-        print(f"[-] API Error during classification: {e}")
-        return None
+            print(f"[-] JSON Decode Error (Attempt {attempt+1}/{retries}): {je}")
+            if attempt == retries - 1:
+                return None
+            time.sleep(2)
+        except Exception as e:
+            err_msg = str(e)
+            if "429" in err_msg or "ResourceExhausted" in err_msg or "Quota" in err_msg:
+                print(f"[-] Rate limit hit (429). Retrying in {delay}s... (Attempt {attempt+1}/{retries})")
+                time.sleep(delay)
+                delay *= 2
+            else:
+                print(f"[-] API Error (Attempt {attempt+1}/{retries}): {e}")
+                if attempt == retries - 1:
+                    return None
+                time.sleep(2)
 
 def classify_all(questions, categories_file, model_name="gemini-3.1-flash-lite", batch_size=25, progress_callback=None):
     """
@@ -119,8 +130,8 @@ def classify_all(questions, categories_file, model_name="gemini-3.1-flash-lite",
                             all_classifications.extend(single_result['classifications'])
                         else:
                             print(f"            [-] Failed to classify question {q['id']} individually.")
-                # Small sleep to respect rate limit during sub-batching
-                time.sleep(2)
+                # Sleep to respect rate limit (15 RPM max) during sub-batching fallback
+                time.sleep(6)
             
         # Rate limit protection for free tier (5 RPM limit)
         # Sleeping for 15 seconds guarantees we stay well under the limit
