@@ -399,46 +399,45 @@ if st.session_state.questions and st.session_state.classifications:
         if unclassified_questions_to_retry:
             st.write(f"Found **{len(unclassified_questions_to_retry)}** unclassified questions (IDs: {unclassified_ids}).")
             if st.button("⚡ Re-classify Remaining Unclassified Questions (Batch size 10)"):
-                from contextlib import redirect_stdout, redirect_stderr
-                run_logger = open("run.log", "w", encoding="utf-8")
-                tee_stream = TeeStream(run_logger, sys.stdout)
+                from src.logger import setup_logger
+                run_logger = setup_logger("run.log")
                 
                 try:
-                    with redirect_stdout(tee_stream), redirect_stderr(tee_stream):
-                        with st.status("Re-classifying remaining questions...", expanded=True) as status:
-                            temp_categories_path = "temp_categories.csv"
-                            with open(temp_categories_path, "w", encoding="utf-8") as f:
-                                f.write("\n".join(st.session_state.categories))
-                                
-                            def cleanup_progress(msg):
-                                status.write(f"🧠 {msg}")
-                                
-                            status.update(label="Calling Gemini API in batches of 10...")
+                    with st.status("Re-classifying remaining questions...", expanded=True) as status:
+                        temp_categories_path = "temp_categories.csv"
+                        with open(temp_categories_path, "w", encoding="utf-8") as f:
+                            f.write("\n".join(st.session_state.categories))
                             
-                            new_classifications = classify_all(
-                                unclassified_questions_to_retry,
-                                temp_categories_path,
-                                model_name=classification_model,
-                                batch_size=10,
-                                progress_callback=cleanup_progress
-                            )
+                        def cleanup_progress(msg):
+                            status.write(f"🧠 {msg}")
                             
-                            if new_classifications:
-                                new_class_map = {c['id']: c['category'] for c in new_classifications}
-                                for c in st.session_state.classifications:
-                                    q_id = c['id']
-                                    if q_id in new_class_map:
-                                        new_cat = new_class_map[q_id]
-                                        if new_cat != "Unclassified":
-                                            c['category'] = new_cat
-                                            
-                                status.update(label="Re-classification complete!", state="complete")
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                status.update(label="Re-classification failed or returned no updates.", state="error")
+                        status.update(label="Calling Gemini API in batches of 10...")
+                        
+                        new_classifications = classify_all(
+                            unclassified_questions_to_retry,
+                            temp_categories_path,
+                            model_name=classification_model,
+                            batch_size=10,
+                            progress_callback=cleanup_progress
+                        )
+                        
+                        if new_classifications:
+                            new_class_map = {c['id']: c['category'] for c in new_classifications}
+                            for c in st.session_state.classifications:
+                                q_id = c['id']
+                                if q_id in new_class_map:
+                                    new_cat = new_class_map[q_id]
+                                    if new_cat != "Unclassified":
+                                        c['category'] = new_cat
+                                        
+                            status.update(label="Re-classification complete!", state="complete")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            status.update(label="Re-classification failed or returned no updates.", state="error")
                 finally:
                     run_logger.close()
+
         
     # Generate content for preview tabs
     final_classifications = st.session_state.classifications
