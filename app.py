@@ -366,14 +366,82 @@ if st.session_state.questions and st.session_state.classifications:
             width="stretch"
         )
         
+        # Save edits to session state right away so they persist
+        if edited_df is not None:
+            updated_classifications = []
+            for index, row in edited_df.iterrows():
+                raw_cat = row["Assigned Category"]
+                cat = "Unclassified" if (pd.isna(raw_cat) or raw_cat is None) else str(raw_cat).strip()
+                updated_classifications.append({
+                    'id': int(row["Question Number"]),
+                    'category': cat
+                })
+            st.session_state.classifications = updated_classifications
+            
+        # Check if there are any legitimately unclassified questions (having real text and not missing)
+        unclassified_ids = []
+        unclassified_questions_to_retry = []
+        
+        q_text_map = {q['id']: q['text'] for q in st.session_state.questions}
+        
+        for c in st.session_state.classifications:
+            q_id = c['id']
+            q_cat = c['category']
+            if q_cat == "Unclassified":
+                q_text = q_text_map.get(q_id, "")
+                if "text missing from OCR" not in q_text:
+                    unclassified_ids.append(q_id)
+                    unclassified_questions_to_retry.append({
+                        'id': q_id,
+                        'text': q_text
+                    })
+                    
+        if unclassified_questions_to_retry:
+            st.write(f"Found **{len(unclassified_questions_to_retry)}** unclassified questions (IDs: {unclassified_ids}).")
+            if st.button("⚡ Re-classify Remaining Unclassified Questions (Batch size 10)"):
+                from contextlib import redirect_stdout, redirect_stderr
+                run_logger = open("run.log", "w", encoding="utf-8")
+                tee_stream = TeeStream(run_logger, sys.stdout)
+                
+                try:
+                    with redirect_stdout(tee_stream), redirect_stderr(tee_stream):
+                        with st.status("Re-classifying remaining questions...", expanded=True) as status:
+                            temp_categories_path = "temp_categories.csv"
+                            with open(temp_categories_path, "w", encoding="utf-8") as f:
+                                f.write("\n".join(st.session_state.categories))
+                                
+                            def cleanup_progress(msg):
+                                status.write(f"🧠 {msg}")
+                                
+                            status.update(label="Calling Gemini API in batches of 10...")
+                            
+                            new_classifications = classify_all(
+                                unclassified_questions_to_retry,
+                                temp_categories_path,
+                                model_name=classification_model,
+                                batch_size=10,
+                                progress_callback=cleanup_progress
+                            )
+                            
+                            if new_classifications:
+                                new_class_map = {c['id']: c['category'] for c in new_classifications}
+                                for c in st.session_state.classifications:
+                                    q_id = c['id']
+                                    if q_id in new_class_map:
+                                        new_cat = new_class_map[q_id]
+                                        if new_cat != "Unclassified":
+                                            c['category'] = new_cat
+                                            
+                                status.update(label="Re-classification complete!", state="complete")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                status.update(label="Re-classification failed or returned no updates.", state="error")
+                finally:
+                    run_logger.close()
+        
     # Generate content for preview tabs
-    final_classifications = []
-    df_to_iterate = edited_df if edited_df is not None else df
-    for index, row in df_to_iterate.iterrows():
-        final_classifications.append({
-            'id': int(row["Question Number"]),
-            'category': row["Assigned Category"]
-        })
+    final_classifications = st.session_state.classifications
         
     # Generate temporary reports to load content
     output_md = "output_classified.md"
