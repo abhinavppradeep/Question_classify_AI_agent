@@ -100,6 +100,7 @@ def classify_all(questions, categories_file, model_name="gemini-3.1-flash-lite",
         result = classify_questions_batch(batch, categories, model_name=model_name)
         
         if result and 'classifications' in result:
+            print(f"    -> Batch {i+1} returned {len(result['classifications'])} classifications.")
             all_classifications.extend(result['classifications'])
         else:
             warn_msg = f"[-] Failed to classify batch {i+1}. Attempting sub-batch fallback..."
@@ -188,13 +189,17 @@ def classify_all(questions, categories_file, model_name="gemini-3.1-flash-lite",
             clean_result = classify_questions_batch(clean_batch, categories, model_name=model_name)
             
             if clean_result and 'classifications' in clean_result:
+                print(f"        -> Cleanup batch {k+1} returned {len(clean_result['classifications'])} classifications.")
                 for c in clean_result['classifications']:
                     cq_id = c.get('id') if isinstance(c, dict) else getattr(c, 'id', None)
                     cq_cat = c.get('category') if isinstance(c, dict) else getattr(c, 'category', 'Unclassified')
                     if cq_id is not None:
                         cq_id = int(cq_id)
+                        print(f"        -> Update Q{cq_id}: {deduped[cq_id]['category']} -> {cq_cat}")
                         if cq_cat != 'Unclassified':
                             deduped[cq_id] = {'id': cq_id, 'category': cq_cat}
+            else:
+                print(f"        -> Cleanup batch {k+1} FAILED to return classifications.")
             # Sleep to respect rate limits during cleanup
             time.sleep(6)
             
