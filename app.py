@@ -339,6 +339,8 @@ if uploaded_file is not None:
                         st.session_state.classifications = classifications
                         st.write(f"Classified {len(classifications)} questions.")
                         status.update(label="Classification Complete!", state="complete")
+                        time.sleep(1)
+                        st.rerun()
                     else:
                         status.update(label="Classification failed. Please check Gemini API logs.", state="error")
         finally:
