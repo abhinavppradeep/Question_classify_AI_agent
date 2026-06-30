@@ -11,13 +11,21 @@ class TeeLogger:
         sys.stderr = self
 
     def write(self, data):
-        self.file.write(data)
-        self.file.flush()
+        if not self.file.closed:
+            try:
+                self.file.write(data)
+                self.file.flush()
+            except (ValueError, OSError):
+                pass
         self.stdout.write(data)
         self.stdout.flush()
 
     def flush(self):
-        self.file.flush()
+        if not self.file.closed:
+            try:
+                self.file.flush()
+            except (ValueError, OSError):
+                pass
         self.stdout.flush()
         
     def close(self):
