@@ -31,14 +31,10 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
         categories_with_unclassified.append("Unclassified")
     CategoryEnum = Enum('CategoryEnum', {cat: cat for cat in categories_with_unclassified})
     
-    # 2. Dynamically build the ID Enum based on the stringified question IDs in this batch
-    batch_ids = [str(q['id']) for q in questions]
-    IdEnum = Enum('IdEnum', {f"Q{q_id}": q_id for q_id in batch_ids})
-    
-    # 3. Create dynamic Pydantic models for structured output
+    # 2. Create dynamic Pydantic models for structured output with id as plain int
     DynamicClassification = create_model(
         'Classification',
-        id=(IdEnum, ...),
+        id=(int, ...),
         category=(CategoryEnum, ...)
     )
     
@@ -59,7 +55,7 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
     Do NOT classify any question as 'Unclassified' unless the text is completely missing, blank, or contains a placeholder like "Question X text missing".
     
     Questions:
-    {json.dumps([{"id": str(q["id"]), "text": q["text"]} for q in questions], indent=2)}
+    {json.dumps([{"id": q["id"], "text": q["text"]} for q in questions], indent=2)}
     """
     
     try:
@@ -68,6 +64,7 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
                 response_schema=DynamicBatchResult,
+                max_output_tokens=2000,
             ),
         )
         try:
