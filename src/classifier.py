@@ -158,4 +158,39 @@ def classify_all(questions, categories_file, model_name="gemini-3.1-flash-lite",
         if q_id not in deduped:
             deduped[q_id] = {'id': q_id, 'category': 'Unclassified'}
             
+    # --- SECONDARY CLEANUP PHASE ---
+    # Extract all questions that remain Unclassified
+    unclassified_q = []
+    for q in questions:
+        q_id = int(q['id'])
+        if deduped[q_id]['category'] == 'Unclassified':
+            unclassified_q.append(q)
+            
+    if unclassified_q:
+        cleanup_msg = f"[+] Cleanup Phase: Found {len(unclassified_q)} unclassified questions. Retrying with small batch size 15..."
+        if progress_callback:
+            progress_callback(cleanup_msg)
+        print(f"\n{cleanup_msg}")
+        
+        # Split into small batches of 15 questions
+        cleanup_batches = list(get_batches(unclassified_q, 15))
+        for k, clean_batch in enumerate(cleanup_batches):
+            clean_batch_msg = f"    [Cleanup] Classifying batch {k+1}/{len(cleanup_batches)} (size: {len(clean_batch)})..."
+            if progress_callback:
+                progress_callback(clean_batch_msg)
+            print(clean_batch_msg)
+            
+            clean_result = classify_questions_batch(clean_batch, categories, model_name=model_name)
+            
+            if clean_result and 'classifications' in clean_result:
+                for c in clean_result['classifications']:
+                    cq_id = c.get('id') if isinstance(c, dict) else getattr(c, 'id', None)
+                    cq_cat = c.get('category') if isinstance(c, dict) else getattr(c, 'category', 'Unclassified')
+                    if cq_id is not None:
+                        cq_id = int(cq_id)
+                        if cq_cat != 'Unclassified':
+                            deduped[cq_id] = {'id': cq_id, 'category': cq_cat}
+            # Sleep to respect rate limits during cleanup
+            time.sleep(6)
+            
     return list(deduped.values())
