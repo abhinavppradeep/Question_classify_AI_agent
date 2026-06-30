@@ -2,15 +2,9 @@ import os
 import json
 import time
 import google.generativeai as genai
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 from typing import List
-
-class Classification(BaseModel):
-    id: int
-    category: str
-
-class BatchClassificationResult(BaseModel):
-    classifications: List[Classification]
+from enum import Enum
 
 def setup_gemini():
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -30,6 +24,24 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
     """
     full_model_name = model_name if model_name.startswith("models/") else f"models/{model_name}"
     model = genai.GenerativeModel(full_model_name)
+    
+    # Dynamically build output schema to strictly limit category to valid ones (+ Unclassified)
+    categories_with_unclassified = list(categories)
+    if "Unclassified" not in categories_with_unclassified:
+        categories_with_unclassified.append("Unclassified")
+        
+    CategoryEnum = Enum('CategoryEnum', {cat: cat for cat in categories_with_unclassified})
+    
+    DynamicClassification = create_model(
+        'Classification',
+        id=(int, ...),
+        category=(CategoryEnum, ...)
+    )
+    
+    DynamicBatchResult = create_model(
+        'BatchClassificationResult',
+        classifications=(List[DynamicClassification], ...)
+    )
     
     categories_str = ", ".join(categories)
     
@@ -54,7 +66,7 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
                 prompt,
                 generation_config=genai.GenerationConfig(
                     response_mime_type="application/json",
-                    response_schema=BatchClassificationResult,
+                    response_schema=DynamicBatchResult,
                 ),
             )
             # Try parsing the JSON response
