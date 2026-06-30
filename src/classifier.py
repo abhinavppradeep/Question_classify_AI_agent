@@ -159,15 +159,20 @@ def classify_all(questions, categories_file, model_name="gemini-3.1-flash-lite",
             deduped[q_id] = {'id': q_id, 'category': 'Unclassified'}
             
     # --- SECONDARY CLEANUP PHASE ---
-    # Extract all questions that remain Unclassified
+    # Extract all questions that remain Unclassified (and have valid text)
     unclassified_q = []
     for q in questions:
         q_id = int(q['id'])
         if deduped[q_id]['category'] == 'Unclassified':
-            unclassified_q.append(q)
+            q_text = q.get('text', '')
+            # If the OCR extraction legitimately failed, do not try to reclassify it.
+            if "text missing from OCR" not in q_text:
+                unclassified_q.append(q)
+            else:
+                print(f"    [Cleanup] Skipping Question {q_id} as its text is missing from OCR.")
             
     if unclassified_q:
-        cleanup_msg = f"[+] Cleanup Phase: Found {len(unclassified_q)} unclassified questions. Retrying with small batch size 15..."
+        cleanup_msg = f"[+] Cleanup Phase: Found {len(unclassified_q)} legitimately unclassified questions. Retrying with small batch size 15..."
         if progress_callback:
             progress_callback(cleanup_msg)
         print(f"\n{cleanup_msg}")
