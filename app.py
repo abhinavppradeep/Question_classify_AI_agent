@@ -176,6 +176,8 @@ if "classifications" not in st.session_state:
     st.session_state.classifications = []
 if "categories" not in st.session_state:
     st.session_state.categories = []
+if "last_processed_file" not in st.session_state:
+    st.session_state.last_processed_file = None
 
 # Sidebar Config
 st.sidebar.markdown("""
@@ -258,6 +260,13 @@ st.markdown("### 📥 Step 1: Upload Exam Paper")
 uploaded_file = st.file_uploader("Upload PDF Exam Paper (or cached OCR text file)", type=["pdf", "txt"], label_visibility="collapsed")
 
 if uploaded_file is not None:
+    # Auto-clear previous results if a new file is uploaded to prevent stale display
+    if st.session_state.last_processed_file != uploaded_file.name:
+        st.session_state.questions = []
+        st.session_state.classifications = []
+        st.session_state.last_processed_file = uploaded_file.name
+        st.rerun()
+
     temp_dir = "temp_uploads"
     os.makedirs(temp_dir, exist_ok=True)
     file_path = os.path.join(temp_dir, uploaded_file.name)
