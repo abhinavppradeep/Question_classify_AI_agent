@@ -13,6 +13,25 @@ from src.parser import extract_questions_via_llm
 from src.classifier import classify_all
 from src.reporter import generate_reports
 
+class TeeStream:
+    def __init__(self, file, terminal):
+        self.file = file
+        self.terminal = terminal
+    def write(self, data):
+        self.file.write(data)
+        self.file.flush()
+        try:
+            self.terminal.write(data)
+            self.terminal.flush()
+        except Exception:
+            pass
+    def flush(self):
+        self.file.flush()
+        try:
+            self.terminal.flush()
+        except Exception:
+            pass
+
 # Load environment variables
 load_dotenv()
 
@@ -244,74 +263,76 @@ if uploaded_file is not None:
         st.session_state.questions = []
         st.session_state.classifications = []
         
-        from src.logger import setup_logger
-        run_logger = setup_logger("run.log")
+        from contextlib import redirect_stdout, redirect_stderr
+        log_file = open("run.log", "w", encoding="utf-8")
+        tee_stream = TeeStream(log_file, sys.stdout)
         
         try:
-            with st.status("Analyzing Exam PDF...", expanded=True) as status:
-                # 1. Extraction / Cache Check
-                status.update(label="Extracting text from PDF...")
-                
-                def ocr_callback(msg):
-                    status.write(f"📖 {msg}")
-                
-                # If uploaded file is already a text file, bypass extractor
-                if file_path.endswith('.txt'):
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        raw_text = f.read()
-                    # Create a dummy pdf next to it for parser caching logic
-                    dummy_pdf = file_path.replace('.txt', '.pdf')
-                    # Cache the txt content so extractor module loads it as cached
-                    os.makedirs("cache", exist_ok=True)
-                    cached_txt_path = os.path.join("cache", f"txt_{os.path.splitext(os.path.basename(dummy_pdf))[0]}.txt")
-                    with open(cached_txt_path, "w", encoding="utf-8") as f:
-                        f.write(raw_text)
-                    status.write("📖 Loaded text file directly.")
-                else:
-                    raw_text = extract_text_from_pdf(file_path, cache_dir="cache", progress_callback=ocr_callback)
+            with redirect_stdout(tee_stream), redirect_stderr(tee_stream):
+                with st.status("Analyzing Exam PDF...", expanded=True) as status:
+                    # 1. Extraction / Cache Check
+                    status.update(label="Extracting text from PDF...")
                     
-                # 2. Parsing (LLM-based)
-                status.update(label="Using AI to parse and extract clean question blocks...")
-                
-                def parse_callback(msg):
-                    status.write(f"🔍 {msg}")
+                    def ocr_callback(msg):
+                        status.write(f"📖 {msg}")
                     
-                st.session_state.questions = extract_questions_via_llm(
-                    raw_text, 
-                    max_q=max_questions,
-                    model_name=extraction_model, 
-                    chunk_size=chunk_size,
-                    progress_callback=parse_callback
-                )
-                status.write(f"🎯 Parsed {len(st.session_state.questions)} questions successfully.")
-                
-                # 3. Classifying
-                status.update(label="Batching questions to Gemini API...")
-                
-                def classification_callback(msg):
-                    status.write(f"🧠 {msg}")
-                
-                # Temporary write categories to file for the classification runner
-                temp_categories_path = "temp_categories.csv"
-                with open(temp_categories_path, "w", encoding="utf-8") as f:
-                    f.write("\n".join(st.session_state.categories))
+                    # If uploaded file is already a text file, bypass extractor
+                    if file_path.endswith('.txt'):
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            raw_text = f.read()
+                        # Create a dummy pdf next to it for parser caching logic
+                        dummy_pdf = file_path.replace('.txt', '.pdf')
+                        # Cache the txt content so extractor module loads it as cached
+                        os.makedirs("cache", exist_ok=True)
+                        cached_txt_path = os.path.join("cache", f"txt_{os.path.splitext(os.path.basename(dummy_pdf))[0]}.txt")
+                        with open(cached_txt_path, "w", encoding="utf-8") as f:
+                            f.write(raw_text)
+                        status.write("📖 Loaded text file directly.")
+                    else:
+                        raw_text = extract_text_from_pdf(file_path, cache_dir="cache", progress_callback=ocr_callback)
+                        
+                    # 2. Parsing (LLM-based)
+                    status.update(label="Using AI to parse and extract clean question blocks...")
                     
-                classifications = classify_all(
-                    st.session_state.questions, 
-                    temp_categories_path, 
-                    model_name=classification_model,
-                    batch_size=batch_size,
-                    progress_callback=classification_callback
-                )
-                
-                if classifications:
-                    st.session_state.classifications = classifications
-                    st.write(f"Classified {len(classifications)} questions.")
-                    status.update(label="Classification Complete!", state="complete")
-                else:
-                    status.update(label="Classification failed. Please check Gemini API logs.", state="error")
+                    def parse_callback(msg):
+                        status.write(f"🔍 {msg}")
+                        
+                    st.session_state.questions = extract_questions_via_llm(
+                        raw_text, 
+                        max_q=max_questions,
+                        model_name=extraction_model, 
+                        chunk_size=chunk_size,
+                        progress_callback=parse_callback
+                    )
+                    status.write(f"🎯 Parsed {len(st.session_state.questions)} questions successfully.")
+                    
+                    # 3. Classifying
+                    status.update(label="Batching questions to Gemini API...")
+                    
+                    def classification_callback(msg):
+                        status.write(f"🧠 {msg}")
+                    
+                    # Temporary write categories to file for the classification runner
+                    temp_categories_path = "temp_categories.csv"
+                    with open(temp_categories_path, "w", encoding="utf-8") as f:
+                        f.write("\n".join(st.session_state.categories))
+                        
+                    classifications = classify_all(
+                        st.session_state.questions, 
+                        temp_categories_path, 
+                        model_name=classification_model,
+                        batch_size=batch_size,
+                        progress_callback=classification_callback
+                    )
+                    
+                    if classifications:
+                        st.session_state.classifications = classifications
+                        st.write(f"Classified {len(classifications)} questions.")
+                        status.update(label="Classification Complete!", state="complete")
+                    else:
+                        status.update(label="Classification failed. Please check Gemini API logs.", state="error")
         finally:
-            run_logger.close()
+            log_file.close()
 
 # Display Results & Verification Grid
 if st.session_state.questions and st.session_state.classifications:
