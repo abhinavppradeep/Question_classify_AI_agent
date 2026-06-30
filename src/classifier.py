@@ -2,15 +2,9 @@ import os
 import json
 import time
 import google.generativeai as genai
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, create_model
 from typing import List
-
-class Classification(BaseModel):
-    id: int = Field(..., ge=1, le=300)
-    category: str
-
-class BatchClassificationResult(BaseModel):
-    classifications: List[Classification]
+from enum import Enum
 
 def setup_gemini():
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -31,6 +25,28 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
     full_model_name = model_name if model_name.startswith("models/") else f"models/{model_name}"
     model = genai.GenerativeModel(full_model_name)
     
+    # 1. Dynamically build the category Enum (with Unclassified)
+    categories_with_unclassified = list(categories)
+    if "Unclassified" not in categories_with_unclassified:
+        categories_with_unclassified.append("Unclassified")
+    CategoryEnum = Enum('CategoryEnum', {cat: cat for cat in categories_with_unclassified})
+    
+    # 2. Dynamically build the ID Enum based on the stringified question IDs in this batch
+    batch_ids = [str(q['id']) for q in questions]
+    IdEnum = Enum('IdEnum', {f"Q{q_id}": q_id for q_id in batch_ids})
+    
+    # 3. Create dynamic Pydantic models for structured output
+    DynamicClassification = create_model(
+        'Classification',
+        id=(IdEnum, ...),
+        category=(CategoryEnum, ...)
+    )
+    
+    DynamicBatchResult = create_model(
+        'BatchClassificationResult',
+        classifications=(List[DynamicClassification], ...)
+    )
+    
     categories_str = ", ".join(categories)
     
     prompt = f"""
@@ -43,7 +59,7 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
     Do NOT classify any question as 'Unclassified' unless the text is completely missing, blank, or contains a placeholder like "Question X text missing".
     
     Questions:
-    {json.dumps([{"id": q["id"], "text": q["text"]} for q in questions], indent=2)}
+    {json.dumps([{"id": str(q["id"]), "text": q["text"]} for q in questions], indent=2)}
     """
     
     try:
@@ -51,7 +67,7 @@ def classify_questions_batch(questions, categories, model_name="gemini-3.1-flash
             prompt,
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
-                response_schema=BatchClassificationResult,
+                response_schema=DynamicBatchResult,
             ),
         )
         try:
